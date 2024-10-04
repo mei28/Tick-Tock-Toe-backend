@@ -28,10 +28,8 @@ pub async fn make_move(
     }
 
     if game.place_piece(x, y) {
-        println!("Move successful: {:?}", game.board);
         HttpResponse::Ok().json(game.clone())
     } else {
-        println!("Invalid move attempt: {:?}", (x, y));
         HttpResponse::BadRequest().body("Invalid move")
     }
 }
@@ -45,7 +43,21 @@ pub async fn get_board(data: web::Data<AppState>) -> impl Responder {
             return HttpResponse::InternalServerError().body("Failed to lock game state");
         }
     };
-    println!("Board state requested");
+    println!("Board state requested: {:?}", game.board);
     HttpResponse::Ok().json(game.clone())
 }
 
+#[post("/reset")]
+pub async fn reset_game(data: web::Data<AppState>) -> impl Responder {
+    let mut game = match data.game.lock() {
+        Ok(game) => game,
+        Err(e) => {
+            println!("Failed to lock game state for reset request: {:?}", e);
+            return HttpResponse::InternalServerError().body("Failed to lock game state");
+        }
+    };
+
+    game.reset();
+    println!("Game has been reset");
+    HttpResponse::Ok().json(game.clone())
+}
