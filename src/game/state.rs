@@ -4,9 +4,10 @@ use serde::{Deserialize, Serialize};
 pub struct GameState {
     pub board: [[Option<String>; 3]; 3],
     pub current_player: String,
-    pub moves_x: Vec<(usize, usize)>, // Xプレイヤーの駒の位置
-    pub moves_o: Vec<(usize, usize)>, // Oプレイヤーの駒の位置
-    pub winner: Option<String>,       // 勝者の名前を保存
+    pub moves_x: Vec<(usize, usize)>,
+    pub moves_o: Vec<(usize, usize)>,
+    pub winner: Option<String>,
+    pub winning_line: Option<[(usize, usize); 3]>, // 勝利したライン
 }
 
 impl GameState {
@@ -17,6 +18,7 @@ impl GameState {
             moves_x: Vec::new(),
             moves_o: Vec::new(),
             winner: None,
+            winning_line: None,
         }
     }
 
@@ -79,6 +81,7 @@ impl GameState {
                 && self.board[a.0][a.1] == self.board[c.0][c.1]
             {
                 self.winner = self.board[a.0][a.1].clone();
+                self.winning_line = Some(*pattern);
                 println!("Winner found: {:?}", self.winner);
                 return;
             }
@@ -91,6 +94,7 @@ impl GameState {
         self.moves_x.clear();
         self.moves_o.clear();
         self.winner = None;
+        self.winning_line = None;
     }
 }
 
