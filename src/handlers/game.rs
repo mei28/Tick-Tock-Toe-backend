@@ -61,3 +61,4 @@ pub async fn reset_game(data: web::Data<AppState>) -> impl Responder {
     println!("Game has been reset");
     HttpResponse::Ok().json(game.clone())
 }
+

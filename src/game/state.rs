@@ -7,7 +7,7 @@ pub struct GameState {
     pub moves_x: Vec<(usize, usize)>,
     pub moves_o: Vec<(usize, usize)>,
     pub winner: Option<String>,
-    pub winning_line: Option<[(usize, usize); 3]>, // 勝利したライン
+    pub winning_line: Option<[(usize, usize); 3]>,
 }
 
 impl GameState {
@@ -30,7 +30,6 @@ impl GameState {
         if self.board[x][y].is_none() {
             self.board[x][y] = Some(self.current_player.clone());
 
-            // 現在のプレイヤーに応じて駒の位置を管理
             let moves = if self.current_player == "X" {
                 &mut self.moves_x
             } else {

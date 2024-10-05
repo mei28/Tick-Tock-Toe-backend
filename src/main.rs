@@ -1,5 +1,5 @@
 use crate::game::state::GameState;
-use crate::handlers::game::{get_board, make_move, reset_game, AppState}; // reset_gameをインポート
+use crate::handlers::game::{get_board, make_move, reset_game, AppState};
 use actix_web::{web, App, HttpServer};
 use std::sync::Mutex;
 
@@ -18,10 +18,9 @@ async fn main() -> std::io::Result<()> {
             .app_data(game_state.clone()) // AppStateをアプリケーションデータとして登録
             .service(make_move)
             .service(get_board)
-            .service(reset_game) // reset_gameのエンドポイントを登録
+            .service(reset_game)
     })
     .bind("127.0.0.1:8080")?
     .run()
     .await
 }
-
