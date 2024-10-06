@@ -416,6 +416,7 @@ dependencies = [
  "serde_json",
  "shuttle-actix-web",
  "shuttle-runtime",
+ "tokio",
 ]
 
 [[package]]

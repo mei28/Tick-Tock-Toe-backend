@@ -1,6 +1,6 @@
 use crate::game::state::GameState;
 use crate::handlers::game::{get_board, make_move, reset_game, AppState};
-use actix_web::{web, App, HttpServer};
+use actix_web::{web, App};
 use std::sync::Mutex;
 
 mod game;
@@ -8,7 +8,7 @@ mod handlers;
 
 #[cfg(feature = "shuttle")]
 #[shuttle_runtime::main]
-fn shuttle_main() -> shuttle_actix_web::ShuttleActixWeb<App<()>> {
+async fn shuttle_main() -> shuttle_actix_web::ShuttleActixWeb<impl Fn() -> App<()>> {
     let game_state = web::Data::new(AppState {
         game: Mutex::new(GameState::new()),
     });
@@ -32,10 +32,10 @@ async fn main() -> std::io::Result<()> {
         game: Mutex::new(GameState::new()),
     });
 
-    HttpServer::new(move || {
+    actix_web::HttpServer::new(move || {
         App::new()
-            .wrap(actix_cors::Cors::permissive()) // CORSの設定
-            .app_data(game_state.clone()) // AppStateをアプリケーションデータとして登録
+            .wrap(actix_cors::Cors::permissive())
+            .app_data(game_state.clone())
             .service(make_move)
             .service(get_board)
             .service(reset_game)
