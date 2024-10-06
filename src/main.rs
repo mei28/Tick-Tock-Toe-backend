@@ -8,7 +8,7 @@ mod handlers;
 
 #[cfg(feature = "shuttle")]
 #[shuttle_runtime::main]
-async fn shuttle_main() -> shuttle_actix_web::ShuttleActixWeb<App<()>> {
+fn shuttle_main() -> shuttle_actix_web::ShuttleActixWeb<App<()>> {
     let game_state = web::Data::new(AppState {
         game: Mutex::new(GameState::new()),
     });
