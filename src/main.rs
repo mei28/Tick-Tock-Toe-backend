@@ -6,6 +6,26 @@ use std::sync::Mutex;
 mod game;
 mod handlers;
 
+#[cfg(feature = "shuttle")]
+#[shuttle_runtime::main]
+async fn shuttle_main() -> shuttle_actix_web::ShuttleActixWeb<App<()>> {
+    let game_state = web::Data::new(AppState {
+        game: Mutex::new(GameState::new()),
+    });
+
+    let factory = move || {
+        App::new()
+            .wrap(actix_cors::Cors::permissive())
+            .app_data(game_state.clone())
+            .service(make_move)
+            .service(get_board)
+            .service(reset_game)
+    };
+
+    Ok(factory.into())
+}
+
+#[cfg(not(feature = "shuttle"))]
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     let game_state = web::Data::new(AppState {
@@ -24,3 +44,4 @@ async fn main() -> std::io::Result<()> {
     .run()
     .await
 }
+
