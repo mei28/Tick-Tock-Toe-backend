@@ -21,7 +21,13 @@ async fn main() -> std::io::Result<()> {
             .service(get_board)
             .service(reset_game)
     })
-    .bind("127.0.0.1:8080")?
+    .bind((
+        "0.0.0.0",
+        std::env::var("PORT")
+            .unwrap_or_else(|_| "8080".to_string())
+            .parse()
+            .unwrap(),
+    ))?
     .run()
     .await
 }
