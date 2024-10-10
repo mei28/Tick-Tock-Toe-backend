@@ -417,6 +417,7 @@ dependencies = [
  "shuttle-actix-web",
  "shuttle-runtime",
  "tokio",
+ "uuid",
 ]
 
 [[package]]

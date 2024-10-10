@@ -96,4 +96,3 @@ impl GameState {
         self.winning_line = None;
     }
 }
-
