@@ -18,16 +18,9 @@ pub async fn new_game(
     data: web::Data<AppState>,
     query: web::Query<HashMap<String, String>>,
 ) -> impl Responder {
-    let is_ai_game = query.get("ai").map(|v| v == "true").unwrap_or(false);
-    let first_player = query.get("firstPlayer").unwrap_or(&"X".to_string()).clone(); // Get first player
-    let ai_level = query.get("aiLevel").cloned(); // Get AI level
-
+    let ai_level = query.get("aiLevel").cloned();
     let game_id = generate_short_id();
-    let mut game_state = GameState::new(is_ai_game, Some(first_player), ai_level); // Pass parameters
-
-    if game_state.first_player == "AI" && is_ai_game {
-        game_state.ai_move(); // AI makes the first move if it goes first
-    }
+    let game_state = GameState::new(true, ai_level); // プレイヤーが先攻でAIゲームを開始
 
     let mut games = data.games.lock().unwrap();
     games.insert(game_id.clone(), game_state);
@@ -51,9 +44,9 @@ pub async fn make_move(
         }
 
         if game.place_piece(x, y) {
-            // If it's an AI game and there's no winner, let the AI make its move
-            if game.is_ai_game && game.winner.is_none() && game.current_player == "O" {
-                game.ai_move(); // AI move
+            // プレイヤーが打った後、AIが自動的に手を打つ
+            if let Some((ai_x, ai_y)) = game.ai_move() {
+                return HttpResponse::Ok().json(game.clone()); // AIが手を打った後の状態を返す
             }
             HttpResponse::Ok().json(game.clone())
         } else {
@@ -88,4 +81,3 @@ pub async fn reset_game(data: web::Data<AppState>, game_id: web::Path<String>) -
         HttpResponse::NotFound().body("Game not found")
     }
 }
-

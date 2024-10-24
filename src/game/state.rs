@@ -4,29 +4,26 @@ use serde::{Deserialize, Serialize};
 #[derive(Serialize, Deserialize, Clone)]
 pub struct GameState {
     pub board: [[Option<String>; 3]; 3],
-    pub current_player: String,
+    pub current_player: String, // 常に "X" または "O"
     pub moves_x: Vec<(usize, usize)>,
     pub moves_o: Vec<(usize, usize)>,
     pub winner: Option<String>,
     pub winning_line: Option<[(usize, usize); 3]>,
-    pub is_ai_game: bool,
-    pub ai_level: Option<String>,
-    pub first_player: String,
+    pub is_ai_game: bool,         // AIゲームかどうか
+    pub ai_level: Option<String>, // AIのレベル
 }
 
 impl GameState {
-    pub fn new(is_ai_game: bool, first_player: Option<String>, ai_level: Option<String>) -> Self {
-        let current_player = first_player.clone().unwrap_or("X".to_string()); // Default to "X"
+    pub fn new(is_ai_game: bool, ai_level: Option<String>) -> Self {
         Self {
             board: [[None, None, None], [None, None, None], [None, None, None]],
-            current_player: current_player.clone(),
+            current_player: "X".to_string(), // プレイヤーが常に先攻
             moves_x: Vec::new(),
             moves_o: Vec::new(),
             winner: None,
             winning_line: None,
             is_ai_game,
             ai_level,
-            first_player: current_player, // Store first player
         }
     }
 
@@ -54,6 +51,7 @@ impl GameState {
             self.check_winner();
 
             if self.winner.is_none() {
+                // プレイヤーの切り替え
                 self.current_player = if self.current_player == "X" {
                     "O".to_string()
                 } else {
@@ -94,20 +92,25 @@ impl GameState {
 
     pub fn reset(&mut self) {
         self.board = [[None, None, None], [None, None, None], [None, None, None]];
-        self.current_player = self.first_player.clone();
         self.moves_x.clear();
         self.moves_o.clear();
         self.winner = None;
         self.winning_line = None;
+        self.current_player = "X".to_string(); // プレイヤーが常に先攻
     }
 
     pub fn ai_move(&mut self) -> Option<(usize, usize)> {
-        if let Some(ai_level) = &self.ai_level {
-            match ai_level.as_str() {
-                "easy" => self.random_ai_move(),
-                "medium" => self.medium_ai_move(),
-                "hard" => self.hard_ai_move(),
-                _ => None,
+        if self.current_player == "O" && self.is_ai_game {
+            // AIは常に後攻
+            if let Some(ai_level) = &self.ai_level {
+                match ai_level.as_str() {
+                    "easy" => self.random_ai_move(),
+                    "medium" => self.medium_ai_move(),
+                    "hard" => self.hard_ai_move(),
+                    _ => None,
+                }
+            } else {
+                None
             }
         } else {
             None
