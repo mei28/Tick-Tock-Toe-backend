@@ -16,16 +16,23 @@ fn generate_short_id() -> String {
 #[post("/new")]
 pub async fn new_game(
     data: web::Data<AppState>,
-    query: web::Query<HashMap<String, String>>, // Expect query parameter for AI mode
+    query: web::Query<HashMap<String, String>>,
 ) -> impl Responder {
-    let is_ai_game = query.get("ai").map(|v| v == "true").unwrap_or(false); // Check if AI mode is enabled
+    let is_ai_game = query.get("ai").map(|v| v == "true").unwrap_or(false);
+    let first_player = query.get("firstPlayer").unwrap_or(&"X".to_string()).clone(); // Get first player
+    let ai_level = query.get("aiLevel").cloned(); // Get AI level
+
     let game_id = generate_short_id();
-    let game_state = GameState::new(is_ai_game);
+    let mut game_state = GameState::new(is_ai_game, Some(first_player), ai_level); // Pass parameters
+
+    if game_state.first_player == "AI" && is_ai_game {
+        game_state.ai_move(); // AI makes the first move if it goes first
+    }
 
     let mut games = data.games.lock().unwrap();
     games.insert(game_id.clone(), game_state);
 
-    HttpResponse::Ok().json(game_id) // Return game ID
+    HttpResponse::Ok().json(game_id)
 }
 
 #[post("/move/{game_id}")]
@@ -44,9 +51,9 @@ pub async fn make_move(
         }
 
         if game.place_piece(x, y) {
-            // If in AI mode, let AI make a random move
-            if game.is_ai_game && game.winner.is_none() {
-                game.random_ai_move(); // AI takes its turn
+            // If it's an AI game and there's no winner, let the AI make its move
+            if game.is_ai_game && game.winner.is_none() && game.current_player == "O" {
+                game.ai_move(); // AI move
             }
             HttpResponse::Ok().json(game.clone())
         } else {
@@ -81,3 +88,4 @@ pub async fn reset_game(data: web::Data<AppState>, game_id: web::Path<String>) -
         HttpResponse::NotFound().body("Game not found")
     }
 }
+

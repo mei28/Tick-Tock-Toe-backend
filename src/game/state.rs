@@ -10,24 +10,29 @@ pub struct GameState {
     pub winner: Option<String>,
     pub winning_line: Option<[(usize, usize); 3]>,
     pub is_ai_game: bool,
+    pub ai_level: Option<String>,
+    pub first_player: String,
 }
 
 impl GameState {
-    pub fn new(is_ai_game: bool) -> Self {
+    pub fn new(is_ai_game: bool, first_player: Option<String>, ai_level: Option<String>) -> Self {
+        let current_player = first_player.clone().unwrap_or("X".to_string()); // Default to "X"
         Self {
             board: [[None, None, None], [None, None, None], [None, None, None]],
-            current_player: "X".to_string(),
+            current_player: current_player.clone(),
             moves_x: Vec::new(),
             moves_o: Vec::new(),
             winner: None,
             winning_line: None,
             is_ai_game,
+            ai_level,
+            first_player: current_player, // Store first player
         }
     }
 
     pub fn place_piece(&mut self, x: usize, y: usize) -> bool {
         if self.winner.is_some() {
-            return false; // すでに勝者がいる場合は駒を置けない
+            return false;
         }
 
         if self.board[x][y].is_none() {
@@ -41,13 +46,12 @@ impl GameState {
 
             moves.push((x, y));
 
-            // 4個以上の駒がある場合に最も古い駒を削除
             if moves.len() > 3 {
                 let (old_x, old_y) = moves.remove(0);
                 self.board[old_x][old_y] = None;
             }
 
-            self.check_winner(); // 勝利条件を確認
+            self.check_winner();
 
             if self.winner.is_none() {
                 self.current_player = if self.current_player == "X" {
@@ -64,15 +68,14 @@ impl GameState {
     }
 
     fn check_winner(&mut self) {
-        // 勝利パターンをチェックするための配列
         let win_patterns = [
-            [(0, 0), (0, 1), (0, 2)], // 横
+            [(0, 0), (0, 1), (0, 2)],
             [(1, 0), (1, 1), (1, 2)],
             [(2, 0), (2, 1), (2, 2)],
-            [(0, 0), (1, 0), (2, 0)], // 縦
+            [(0, 0), (1, 0), (2, 0)],
             [(0, 1), (1, 1), (2, 1)],
             [(0, 2), (1, 2), (2, 2)],
-            [(0, 0), (1, 1), (2, 2)], // 斜め
+            [(0, 0), (1, 1), (2, 2)],
             [(0, 2), (1, 1), (2, 0)],
         ];
 
@@ -84,7 +87,6 @@ impl GameState {
             {
                 self.winner = self.board[a.0][a.1].clone();
                 self.winning_line = Some(*pattern);
-                println!("Winner found: {:?}", self.winner);
                 return;
             }
         }
@@ -92,18 +94,27 @@ impl GameState {
 
     pub fn reset(&mut self) {
         self.board = [[None, None, None], [None, None, None], [None, None, None]];
-        self.current_player = "X".to_string();
+        self.current_player = self.first_player.clone();
         self.moves_x.clear();
         self.moves_o.clear();
         self.winner = None;
         self.winning_line = None;
     }
 
-    pub fn random_ai_move(&mut self) -> Option<(usize, usize)> {
-        if self.winner.is_some() {
-            return None;
+    pub fn ai_move(&mut self) -> Option<(usize, usize)> {
+        if let Some(ai_level) = &self.ai_level {
+            match ai_level.as_str() {
+                "easy" => self.random_ai_move(),
+                "medium" => self.medium_ai_move(),
+                "hard" => self.hard_ai_move(),
+                _ => None,
+            }
+        } else {
+            None
         }
+    }
 
+    fn random_ai_move(&mut self) -> Option<(usize, usize)> {
         let mut rng = rand::thread_rng();
         let available_moves = (0..3)
             .flat_map(|x| (0..3).map(move |y| (x, y)))
@@ -111,10 +122,18 @@ impl GameState {
             .collect::<Vec<(usize, usize)>>();
 
         if let Some(&(x, y)) = available_moves.iter().choose(&mut rng) {
-            self.place_piece(x, y); // Place piece as AI
+            self.place_piece(x, y);
             Some((x, y))
         } else {
             None
         }
+    }
+
+    fn medium_ai_move(&mut self) -> Option<(usize, usize)> {
+        self.random_ai_move()
+    }
+
+    fn hard_ai_move(&mut self) -> Option<(usize, usize)> {
+        self.random_ai_move()
     }
 }
