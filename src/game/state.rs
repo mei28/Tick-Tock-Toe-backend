@@ -1,3 +1,4 @@
+use rand::seq::IteratorRandom;
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -8,10 +9,11 @@ pub struct GameState {
     pub moves_o: Vec<(usize, usize)>,
     pub winner: Option<String>,
     pub winning_line: Option<[(usize, usize); 3]>,
+    pub is_ai_game: bool,
 }
 
 impl GameState {
-    pub fn new() -> Self {
+    pub fn new(is_ai_game: bool) -> Self {
         Self {
             board: [[None, None, None], [None, None, None], [None, None, None]],
             current_player: "X".to_string(),
@@ -19,6 +21,7 @@ impl GameState {
             moves_o: Vec::new(),
             winner: None,
             winning_line: None,
+            is_ai_game,
         }
     }
 
@@ -94,5 +97,24 @@ impl GameState {
         self.moves_o.clear();
         self.winner = None;
         self.winning_line = None;
+    }
+
+    pub fn random_ai_move(&mut self) -> Option<(usize, usize)> {
+        if self.winner.is_some() {
+            return None;
+        }
+
+        let mut rng = rand::thread_rng();
+        let available_moves = (0..3)
+            .flat_map(|x| (0..3).map(move |y| (x, y)))
+            .filter(|&(x, y)| self.board[x][y].is_none())
+            .collect::<Vec<(usize, usize)>>();
+
+        if let Some(&(x, y)) = available_moves.iter().choose(&mut rng) {
+            self.place_piece(x, y); // Place piece as AI
+            Some((x, y))
+        } else {
+            None
+        }
     }
 }

@@ -14,14 +14,18 @@ fn generate_short_id() -> String {
 }
 
 #[post("/new")]
-pub async fn new_game(data: web::Data<AppState>) -> impl Responder {
-    let game_id = generate_short_id(); // 短いIDを生成
-    let game_state = GameState::new();
+pub async fn new_game(
+    data: web::Data<AppState>,
+    query: web::Query<HashMap<String, String>>, // Expect query parameter for AI mode
+) -> impl Responder {
+    let is_ai_game = query.get("ai").map(|v| v == "true").unwrap_or(false); // Check if AI mode is enabled
+    let game_id = generate_short_id();
+    let game_state = GameState::new(is_ai_game);
 
     let mut games = data.games.lock().unwrap();
     games.insert(game_id.clone(), game_state);
 
-    HttpResponse::Ok().json(game_id) // 短いゲームIDをクライアントに返す
+    HttpResponse::Ok().json(game_id) // Return game ID
 }
 
 #[post("/move/{game_id}")]
@@ -40,6 +44,10 @@ pub async fn make_move(
         }
 
         if game.place_piece(x, y) {
+            // If in AI mode, let AI make a random move
+            if game.is_ai_game && game.winner.is_none() {
+                game.random_ai_move(); // AI takes its turn
+            }
             HttpResponse::Ok().json(game.clone())
         } else {
             HttpResponse::BadRequest().body("Invalid move")
@@ -73,4 +81,3 @@ pub async fn reset_game(data: web::Data<AppState>, game_id: web::Path<String>) -
         HttpResponse::NotFound().body("Game not found")
     }
 }
-
