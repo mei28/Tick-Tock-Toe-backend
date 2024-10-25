@@ -56,9 +56,9 @@ pub async fn make_move(
         if game.place_piece(x, y) {
             if game.is_ai_game && game.winner.is_none() {
                 let max_depth = if game.difficulty == Some(Difficulty::Hard) {
-                    100
+                    30
                 } else {
-                    100
+                    30
                 };
                 let ai_player = AiPlayer::new(
                     game.difficulty.clone().unwrap_or(Difficulty::Medium),
