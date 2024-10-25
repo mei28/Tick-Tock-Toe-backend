@@ -1,0 +1,14 @@
+name: Keep Render Server Alive
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"  # 10分ごとに実行
+
+jobs:
+  keep_alive:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Send health check request
+        run: |
+          curl -sSf https://tick-tock-toe-backend.onrender.com/health || echo "Server may be down"

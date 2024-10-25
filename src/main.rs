@@ -1,4 +1,5 @@
 use crate::handlers::game::{get_board, make_move, new_game, reset_game, AppState};
+use crate::handlers::health::health_check;
 use actix_web::{web, App};
 use std::collections::HashMap;
 use std::sync::Mutex;
@@ -20,6 +21,7 @@ async fn main() -> std::io::Result<()> {
             .service(make_move)
             .service(get_board)
             .service(reset_game)
+            .service(health_check)
     })
     .bind((
         "0.0.0.0",
