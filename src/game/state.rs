@@ -1,6 +1,5 @@
 use crate::ai::Difficulty;
 use serde::{Deserialize, Serialize};
-use std::collections::HashSet;
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct GameState {

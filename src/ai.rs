@@ -1,11 +1,10 @@
-// src/ai.rs
 use crate::game::state::GameState;
 use rand::seq::SliceRandom;
 use rand::thread_rng;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-#[derive(Clone, Deserialize, Serialize)]
+#[derive(Clone, Deserialize, Serialize, PartialEq)]
 pub enum Difficulty {
     Easy,
     Medium,
@@ -14,18 +13,22 @@ pub enum Difficulty {
 
 pub struct AiPlayer {
     pub difficulty: Difficulty,
+    pub max_depth: usize, // Hardモード用の探索深さ
 }
 
 impl AiPlayer {
-    pub fn new(difficulty: Difficulty) -> Self {
-        Self { difficulty }
+    pub fn new(difficulty: Difficulty, max_depth: usize) -> Self {
+        Self {
+            difficulty,
+            max_depth,
+        }
     }
 
     pub fn make_move(&self, game_state: &mut GameState) -> Option<(usize, usize)> {
         match self.difficulty {
             Difficulty::Easy => self.random_move(game_state),
-            Difficulty::Medium => self.random_move(game_state),
-            Difficulty::Hard => self.minimax_move(game_state),
+            Difficulty::Medium => self.medium_move(game_state),
+            Difficulty::Hard => self.hard_move(game_state),
         }
     }
 
@@ -34,25 +37,52 @@ impl AiPlayer {
         game_state.available_moves().choose(&mut rng).cloned()
     }
 
-    fn minimax_move(&self, game_state: &GameState) -> Option<(usize, usize)> {
+    fn medium_move(&self, game_state: &GameState) -> Option<(usize, usize)> {
         let mut best_score = i32::MIN;
-        let mut best_move = None;
-        let mut memo = HashMap::new(); // Memoization map to store evaluated states
+        let mut best_moves = vec![];
+        let mut memo = HashMap::new(); // メモ化で訪問済み盤面の結果を保存
 
         for (x, y) in game_state.available_moves() {
-            let mut simulated_state = game_state.clone(); // Clone game state for simulation
-            simulated_state.place_piece(x, y); // Try the move on the simulated state
+            let mut simulated_state = game_state.clone();
+            simulated_state.place_piece(x, y);
 
-            // Call minimax with depth limit of 5 on the simulated state
-            let score = self.minimax(&mut simulated_state, false, 5, &mut memo);
+            // メモ化を使ったミニマックスを行う
+            let score = self.minimax(&mut simulated_state, false, usize::MAX, &mut memo);
 
             if score > best_score {
                 best_score = score;
-                best_move = Some((x, y));
+                best_moves = vec![(x, y)];
+            } else if score == best_score {
+                best_moves.push((x, y));
             }
         }
 
-        best_move
+        let mut rng = thread_rng();
+        best_moves.choose(&mut rng).cloned()
+    }
+
+    fn hard_move(&self, game_state: &GameState) -> Option<(usize, usize)> {
+        let mut best_score = i32::MIN;
+        let mut best_moves = vec![];
+        let mut memo = HashMap::new();
+
+        for (x, y) in game_state.available_moves() {
+            let mut simulated_state = game_state.clone();
+            simulated_state.place_piece(x, y);
+
+            // Hardモードで指定された探索深さで制限したミニマックスを行う
+            let score = self.minimax(&mut simulated_state, false, self.max_depth, &mut memo);
+
+            if score > best_score {
+                best_score = score;
+                best_moves = vec![(x, y)];
+            } else if score == best_score {
+                best_moves.push((x, y));
+            }
+        }
+
+        let mut rng = thread_rng();
+        best_moves.choose(&mut rng).cloned()
     }
 
     fn minimax(
@@ -74,14 +104,14 @@ impl AiPlayer {
                 "X" => -1,
                 _ => 0,
             };
-            memo.insert(board_key, score); // Cache the result
+            memo.insert(board_key, score); // 結果をメモ化してキャッシュ
             return score;
         } else if game_state.available_moves().is_empty() {
-            return 0; // Draw
+            return 0; // 引き分け
         }
 
         if depth == 0 {
-            return 0; // Reached max depth
+            return 0; // 探索深さの上限に達した場合
         }
 
         let mut best_score = if is_maximizing { i32::MIN } else { i32::MAX };
