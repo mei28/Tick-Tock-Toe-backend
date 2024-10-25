@@ -1,6 +1,6 @@
 use crate::ai::Difficulty;
-use rand::seq::IteratorRandom;
 use serde::{Deserialize, Serialize};
+use std::collections::HashSet;
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct GameState {
@@ -65,6 +65,10 @@ impl GameState {
         }
     }
 
+    pub fn undo_move(&mut self, x: usize, y: usize) {
+        self.board[x][y] = None;
+    }
+
     fn check_winner(&mut self) {
         let win_patterns = [
             [(0, 0), (0, 1), (0, 2)],
@@ -90,15 +94,6 @@ impl GameState {
         }
     }
 
-    pub fn reset(&mut self) {
-        self.board = [[None, None, None], [None, None, None], [None, None, None]];
-        self.moves_x.clear();
-        self.moves_o.clear();
-        self.winner = None;
-        self.winning_line = None;
-        self.current_player = "X".to_string();
-    }
-
     pub fn available_moves(&self) -> Vec<(usize, usize)> {
         let mut moves = vec![];
         for x in 0..3 {
@@ -109,5 +104,14 @@ impl GameState {
             }
         }
         moves
+    }
+
+    pub fn reset(&mut self) {
+        self.board = [[None, None, None], [None, None, None], [None, None, None]];
+        self.moves_x.clear();
+        self.moves_o.clear();
+        self.winner = None;
+        self.winning_line = None;
+        self.current_player = "X".to_string();
     }
 }
