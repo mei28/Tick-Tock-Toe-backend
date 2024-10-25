@@ -1,3 +1,4 @@
+use crate::ai::{AiPlayer, Difficulty};
 use crate::game::state::GameState;
 use actix_web::{get, post, web, HttpResponse, Responder};
 use std::collections::HashMap;
@@ -8,9 +9,8 @@ pub struct AppState {
     pub games: Mutex<HashMap<String, GameState>>,
 }
 
-// UUIDを5文字に短縮する関数
 fn generate_short_id() -> String {
-    Uuid::new_v4().to_string()[..5].to_string() // UUIDの最初の5文字を取り出す
+    Uuid::new_v4().to_string()[..5].to_string()
 }
 
 #[post("/new")]
@@ -18,9 +18,19 @@ pub async fn new_game(
     data: web::Data<AppState>,
     query: web::Query<HashMap<String, String>>,
 ) -> impl Responder {
-    let ai_level = query.get("aiLevel").cloned();
+    let ai_level = query
+        .get("aiLevel")
+        .cloned()
+        .unwrap_or("medium".to_string());
+    let difficulty = match ai_level.as_str() {
+        "easy" => Difficulty::Easy,
+        "medium" => Difficulty::Medium,
+        "hard" => Difficulty::Hard,
+        _ => Difficulty::Medium,
+    };
+
     let game_id = generate_short_id();
-    let game_state = GameState::new(true, ai_level); // プレイヤーが先攻でAIゲームを開始
+    let game_state = GameState::new(true, Some(difficulty));
 
     let mut games = data.games.lock().unwrap();
     games.insert(game_id.clone(), game_state);
@@ -44,9 +54,12 @@ pub async fn make_move(
         }
 
         if game.place_piece(x, y) {
-            // プレイヤーが打った後、AIが自動的に手を打つ
-            if let Some((ai_x, ai_y)) = game.ai_move() {
-                return HttpResponse::Ok().json(game.clone()); // AIが手を打った後の状態を返す
+            if game.is_ai_game && game.winner.is_none() {
+                let ai_player =
+                    AiPlayer::new(game.difficulty.clone().unwrap_or(Difficulty::Medium));
+                if let Some((ai_x, ai_y)) = ai_player.make_move(game) {
+                    game.place_piece(ai_x, ai_y);
+                }
             }
             HttpResponse::Ok().json(game.clone())
         } else {

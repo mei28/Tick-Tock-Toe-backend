@@ -4,6 +4,7 @@ use actix_web::{web, App};
 use std::collections::HashMap;
 use std::sync::Mutex;
 
+mod ai;
 mod game;
 mod handlers;
 
@@ -15,8 +16,8 @@ async fn main() -> std::io::Result<()> {
 
     actix_web::HttpServer::new(move || {
         App::new()
-            .wrap(actix_cors::Cors::permissive()) // CORSの設定
-            .app_data(game_state.clone()) // AppStateをアプリケーションデータとして登録
+            .wrap(actix_cors::Cors::permissive())
+            .app_data(game_state.clone())
             .service(new_game)
             .service(make_move)
             .service(get_board)

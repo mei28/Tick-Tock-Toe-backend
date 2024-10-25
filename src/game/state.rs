@@ -1,29 +1,30 @@
+use crate::ai::Difficulty;
 use rand::seq::IteratorRandom;
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct GameState {
     pub board: [[Option<String>; 3]; 3],
-    pub current_player: String, // 常に "X" または "O"
+    pub current_player: String,
     pub moves_x: Vec<(usize, usize)>,
     pub moves_o: Vec<(usize, usize)>,
     pub winner: Option<String>,
     pub winning_line: Option<[(usize, usize); 3]>,
-    pub is_ai_game: bool,         // AIゲームかどうか
-    pub ai_level: Option<String>, // AIのレベル
+    pub is_ai_game: bool,
+    pub difficulty: Option<Difficulty>,
 }
 
 impl GameState {
-    pub fn new(is_ai_game: bool, ai_level: Option<String>) -> Self {
+    pub fn new(is_ai_game: bool, difficulty: Option<Difficulty>) -> Self {
         Self {
             board: [[None, None, None], [None, None, None], [None, None, None]],
-            current_player: "X".to_string(), // プレイヤーが常に先攻
+            current_player: "X".to_string(),
             moves_x: Vec::new(),
             moves_o: Vec::new(),
             winner: None,
             winning_line: None,
             is_ai_game,
-            ai_level,
+            difficulty,
         }
     }
 
@@ -51,7 +52,6 @@ impl GameState {
             self.check_winner();
 
             if self.winner.is_none() {
-                // プレイヤーの切り替え
                 self.current_player = if self.current_player == "X" {
                     "O".to_string()
                 } else {
@@ -96,47 +96,18 @@ impl GameState {
         self.moves_o.clear();
         self.winner = None;
         self.winning_line = None;
-        self.current_player = "X".to_string(); // プレイヤーが常に先攻
+        self.current_player = "X".to_string();
     }
 
-    pub fn ai_move(&mut self) -> Option<(usize, usize)> {
-        if self.current_player == "O" && self.is_ai_game {
-            // AIは常に後攻
-            if let Some(ai_level) = &self.ai_level {
-                match ai_level.as_str() {
-                    "easy" => self.random_ai_move(),
-                    "medium" => self.medium_ai_move(),
-                    "hard" => self.hard_ai_move(),
-                    _ => None,
+    pub fn available_moves(&self) -> Vec<(usize, usize)> {
+        let mut moves = vec![];
+        for x in 0..3 {
+            for y in 0..3 {
+                if self.board[x][y].is_none() {
+                    moves.push((x, y));
                 }
-            } else {
-                None
             }
-        } else {
-            None
         }
-    }
-
-    fn random_ai_move(&mut self) -> Option<(usize, usize)> {
-        let mut rng = rand::thread_rng();
-        let available_moves = (0..3)
-            .flat_map(|x| (0..3).map(move |y| (x, y)))
-            .filter(|&(x, y)| self.board[x][y].is_none())
-            .collect::<Vec<(usize, usize)>>();
-
-        if let Some(&(x, y)) = available_moves.iter().choose(&mut rng) {
-            self.place_piece(x, y);
-            Some((x, y))
-        } else {
-            None
-        }
-    }
-
-    fn medium_ai_move(&mut self) -> Option<(usize, usize)> {
-        self.random_ai_move()
-    }
-
-    fn hard_ai_move(&mut self) -> Option<(usize, usize)> {
-        self.random_ai_move()
+        moves
     }
 }
