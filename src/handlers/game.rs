@@ -60,10 +60,21 @@ pub async fn make_move(
                 } else {
                     30
                 };
+                let evaluation_file = "src/config/evaluation_table.json";
+                let evaluation_type = match game.difficulty {
+                    Some(Difficulty::Easy) => "exp1",
+                    Some(Difficulty::Medium) => "exp1",
+                    Some(Difficulty::Hard) => "exp2",
+                    _ => "exp1",
+                };
+
                 let ai_player = AiPlayer::new(
                     game.difficulty.clone().unwrap_or(Difficulty::Medium),
                     max_depth,
+                    evaluation_file,
+                    evaluation_type,
                 );
+
                 if let Some((ai_x, ai_y)) = ai_player.make_move(game) {
                     game.place_piece(ai_x, ai_y);
                 }
