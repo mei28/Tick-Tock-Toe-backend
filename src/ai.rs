@@ -34,18 +34,17 @@ impl AiPlayer {
         game_state.available_moves().choose(&mut rng).cloned()
     }
 
-    fn minimax_move(&self, game_state: &mut GameState) -> Option<(usize, usize)> {
+    fn minimax_move(&self, game_state: &GameState) -> Option<(usize, usize)> {
         let mut best_score = i32::MIN;
         let mut best_move = None;
         let mut memo = HashMap::new(); // Memoization map to store evaluated states
 
         for (x, y) in game_state.available_moves() {
-            game_state.place_piece(x, y); // Try the move
+            let mut simulated_state = game_state.clone(); // Clone game state for simulation
+            simulated_state.place_piece(x, y); // Try the move on the simulated state
 
-            // Call minimax with depth limit of 5
-            let score = self.minimax(game_state, false, 5, &mut memo);
-
-            game_state.undo_move(x, y); // Undo the move
+            // Call minimax with depth limit of 5 on the simulated state
+            let score = self.minimax(&mut simulated_state, false, 5, &mut memo);
 
             if score > best_score {
                 best_score = score;
