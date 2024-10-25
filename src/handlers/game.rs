@@ -62,10 +62,10 @@ pub async fn make_move(
                 };
                 let evaluation_file = "src/config/evaluation_table.json";
                 let evaluation_type = match game.difficulty {
-                    Some(Difficulty::Easy) => "exp1",
-                    Some(Difficulty::Medium) => "exp1",
-                    Some(Difficulty::Hard) => "exp2",
-                    _ => "exp1",
+                    Some(Difficulty::Easy) => "easy",
+                    Some(Difficulty::Medium) => "medium",
+                    Some(Difficulty::Hard) => "hard",
+                    _ => panic!("Invalid difficulty"),
                 };
 
                 let ai_player = AiPlayer::new(
