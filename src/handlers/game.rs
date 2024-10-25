@@ -56,7 +56,7 @@ pub async fn make_move(
         if game.place_piece(x, y) {
             if game.is_ai_game && game.winner.is_none() {
                 let max_depth = if game.difficulty == Some(Difficulty::Hard) {
-                    30
+                    300
                 } else {
                     30
                 };
@@ -95,7 +95,10 @@ pub async fn reset_game(data: web::Data<AppState>, game_id: web::Path<String>) -
     let mut games = data.games.lock().unwrap();
 
     if let Some(game) = games.get_mut(&game_id) {
+        // difficultyを保持しつつゲームをリセット
+        let difficulty = game.difficulty.clone();
         game.reset();
+        game.difficulty = difficulty;
         HttpResponse::Ok().json(game.clone())
     } else {
         HttpResponse::NotFound().body("Game not found")
