@@ -1,8 +1,10 @@
+// src/ai.rs
 use crate::game::state::GameState;
 use rand::seq::SliceRandom;
 use rand::thread_rng;
+use serde::{Serialize, Deserialize};
 
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize)]
 pub enum Difficulty {
     Easy,
     Medium,
@@ -36,3 +38,4 @@ impl AiPlayer {
         None
     }
 }
+
