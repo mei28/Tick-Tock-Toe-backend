@@ -29,22 +29,22 @@
   },
   "Hard": {
     "hard": {
-      "self_three_in_row": -5,
-      "self_two_in_row": -5,
-      "opponent_three_in_row": 20,
-      "opponent_two_in_row": 10
+      "self_three_in_row": 10,
+      "self_two_in_row": 5,
+      "opponent_three_in_row": 100,
+      "opponent_two_in_row": 50
     },
     "exp1": {
-      "self_three_in_row": -10,
-      "self_two_in_row": -4,
-      "opponent_three_in_row": 10,
-      "opponent_two_in_row": 5
+      "self_three_in_row": -6,
+      "self_two_in_row": -5,
+      "opponent_three_in_row": 25,
+      "opponent_two_in_row": 12
     },
     "exp2": {
       "self_three_in_row": -12,
       "self_two_in_row": -6,
-      "opponent_three_in_row": 12,
-      "opponent_two_in_row": 7
+      "opponent_three_in_row": 15,
+      "opponent_two_in_row": 8
     }
   }
 }

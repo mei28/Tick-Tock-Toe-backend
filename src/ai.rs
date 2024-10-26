@@ -20,12 +20,13 @@ pub struct AiPlayer {
 }
 
 impl AiPlayer {
-    pub fn new(
-        difficulty: Difficulty,
-        max_depth: usize,
-        evaluation_file: &str,
-        eval_type: &str,
-    ) -> Self {
+    pub fn new(difficulty: Difficulty, evaluation_file: &str, eval_type: &str) -> Self {
+        let max_depth = match difficulty {
+            Difficulty::Easy => 1,
+            Difficulty::Medium => 4,
+            Difficulty::Hard => 8, // 高い深さで探索
+        };
+
         let evaluation_table = Self::load_evaluation_table(evaluation_file, &difficulty, eval_type);
 
         Self {
@@ -44,7 +45,6 @@ impl AiPlayer {
             fs::read_to_string(file_path).expect("Unable to read evaluation table file");
         let json_data: Value = serde_json::from_str(&file_content).expect("Unable to parse JSON");
 
-        // 難易度に基づいて適切な評価テーブルを取得
         let difficulty_str = match difficulty {
             Difficulty::Easy => "Easy",
             Difficulty::Medium => "Medium",
@@ -88,16 +88,10 @@ impl AiPlayer {
             let mut simulated_state = game_state.clone();
             simulated_state.place_piece(x, y);
 
-            // Use minimax with depth limited by max_depth for Hard, no limit for Medium
-            let depth = if self.difficulty == Difficulty::Hard {
-                self.max_depth
-            } else {
-                3
-            };
             let score = self.minimax(
                 &mut simulated_state,
                 false,
-                depth,
+                self.max_depth,
                 &mut memo,
                 is_detailed_eval,
             );
@@ -141,7 +135,7 @@ impl AiPlayer {
         }
 
         if depth == 0 {
-            return self.evaluate_position(game_state, is_detailed_eval);
+            return self.evaluate_position(game_state);
         }
 
         let mut best_score = if is_maximizing { i32::MIN } else { i32::MAX };
@@ -166,7 +160,8 @@ impl AiPlayer {
         memo.insert(board_key, best_score);
         best_score
     }
-    fn evaluate_position(&self, game_state: &GameState, is_detailed_eval: bool) -> i32 {
+
+    fn evaluate_position(&self, game_state: &GameState) -> i32 {
         let mut score = 0;
         let win_patterns = [
             [(0, 0), (0, 1), (0, 2)],
@@ -191,23 +186,14 @@ impl AiPlayer {
                 }
             }
 
-            if is_detailed_eval {
-                if o_count == 3 {
-                    score += self.evaluation_table["opponent_three_in_row"];
-                } else if o_count == 2 && x_count == 0 {
-                    score += self.evaluation_table["opponent_two_in_row"];
-                } else if x_count == 2 && o_count == 0 {
-                    score += self.evaluation_table["self_two_in_row"];
-                } else if x_count == 3 {
-                    score += self.evaluation_table["self_three_in_row"];
-                }
-            } else {
-                // Medium level evaluation
-                if o_count == 3 {
-                    score += 10;
-                } else if x_count == 3 {
-                    score -= 10;
-                }
+            if o_count == 3 {
+                score += self.evaluation_table["opponent_three_in_row"];
+            } else if o_count == 2 && x_count == 0 {
+                score += self.evaluation_table["opponent_two_in_row"];
+            } else if x_count == 2 && o_count == 0 {
+                score += self.evaluation_table["self_two_in_row"];
+            } else if x_count == 3 {
+                score += self.evaluation_table["self_three_in_row"];
             }
         }
 

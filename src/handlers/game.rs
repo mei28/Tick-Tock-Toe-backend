@@ -55,11 +55,6 @@ pub async fn make_move(
 
         if game.place_piece(x, y) {
             if game.is_ai_game && game.winner.is_none() {
-                let max_depth = if game.difficulty == Some(Difficulty::Hard) {
-                    300
-                } else {
-                    30
-                };
                 let evaluation_file = "src/config/evaluation_table.json";
                 let evaluation_type = match game.difficulty {
                     Some(Difficulty::Easy) => "easy",
@@ -70,7 +65,6 @@ pub async fn make_move(
 
                 let ai_player = AiPlayer::new(
                     game.difficulty.clone().unwrap_or(Difficulty::Medium),
-                    max_depth,
                     evaluation_file,
                     evaluation_type,
                 );
@@ -106,7 +100,6 @@ pub async fn reset_game(data: web::Data<AppState>, game_id: web::Path<String>) -
     let mut games = data.games.lock().unwrap();
 
     if let Some(game) = games.get_mut(&game_id) {
-        // difficultyを保持しつつゲームをリセット
         let difficulty = game.difficulty.clone();
         game.reset();
         game.difficulty = difficulty;
