@@ -54,8 +54,7 @@ pub async fn make_move(
             // AIの動作はAIモードが有効な場合のみ行う
             if game.is_ai_game && game.winner.is_none() {
                 let difficulty = game.difficulty.clone().unwrap_or(Difficulty::Medium);
-                let mut ai_player =
-                    AiPlayer::new(difficulty, "src/config/evaluation_table.json", "hard");
+                let mut ai_player = AiPlayer::new(difficulty);
 
                 if let Some((ai_x, ai_y)) = ai_player.make_move(game) {
                     game.place_piece(ai_x, ai_y);

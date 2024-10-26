@@ -1,10 +1,10 @@
 use crate::game::state::GameState;
 use rand::seq::SliceRandom;
-use rand::thread_rng;
+use rand::{thread_rng, Rng};
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
 use std::collections::HashMap;
-use std::fs;
+use std::fs::{self, File};
+use std::io::{self, Write};
 
 #[derive(Clone, Deserialize, Serialize, PartialEq, Debug)]
 pub enum Difficulty {
@@ -15,58 +15,20 @@ pub enum Difficulty {
 
 pub struct AiPlayer {
     pub difficulty: Difficulty,
-    pub max_depth: usize,
-    evaluation_table: HashMap<String, i32>,
-    q_learning: Option<QLearning>,
+    pub q_learning: Option<QLearning>,
 }
 
 impl AiPlayer {
-    pub fn new(difficulty: Difficulty, evaluation_file: &str, eval_type: &str) -> Self {
-        let max_depth = match difficulty {
-            Difficulty::Easy => 1,
-            Difficulty::Medium => 4,
-            Difficulty::Hard => 0,
-        };
-
+    pub fn new(difficulty: Difficulty) -> Self {
         let q_learning = if difficulty == Difficulty::Hard {
-            Some(QLearning::new(0.1, 0.9, 0.2))
+            Some(QLearning::new(0.1, 0.9, 0.5, "q_table.json")) // Q学習のためのパラメータ設定
         } else {
             None
         };
-
-        let evaluation_table = Self::load_evaluation_table(evaluation_file, &difficulty, eval_type);
-
         Self {
             difficulty,
-            max_depth,
-            evaluation_table,
             q_learning,
         }
-    }
-
-    fn load_evaluation_table(
-        file_path: &str,
-        difficulty: &Difficulty,
-        eval_type: &str,
-    ) -> HashMap<String, i32> {
-        let file_content =
-            fs::read_to_string(file_path).expect("Unable to read evaluation table file");
-        let json_data: Value = serde_json::from_str(&file_content).expect("Unable to parse JSON");
-
-        let difficulty_str = match difficulty {
-            Difficulty::Easy => "Easy",
-            Difficulty::Medium => "Medium",
-            Difficulty::Hard => "Hard",
-        };
-
-        let table_data = json_data[difficulty_str][eval_type]
-            .as_object()
-            .expect("Expected evaluation table object");
-
-        table_data
-            .iter()
-            .map(|(key, value)| (key.clone(), value.as_i64().unwrap_or(0) as i32))
-            .collect()
     }
 
     pub fn make_move(&mut self, game_state: &mut GameState) -> Option<(usize, usize)> {
@@ -82,29 +44,6 @@ impl AiPlayer {
         game_state.available_moves().choose(&mut rng).cloned()
     }
 
-    fn q_learning_move(&mut self, game_state: &GameState) -> Option<(usize, usize)> {
-        let state = format!("{:?}", game_state);
-        let mut rng = thread_rng();
-
-        if rand::random::<f32>() < self.q_learning.as_ref().unwrap().epsilon {
-            game_state.available_moves().choose(&mut rng).cloned()
-        } else {
-            game_state.available_moves().into_iter().max_by(|&a, &b| {
-                let q_a = self
-                    .q_learning
-                    .as_mut()
-                    .unwrap()
-                    .get_q_value(&format!("{}:{:?}", state, a));
-                let q_b = self
-                    .q_learning
-                    .as_mut()
-                    .unwrap()
-                    .get_q_value(&format!("{}:{:?}", state, b));
-                q_a.partial_cmp(&q_b).unwrap()
-            })
-        }
-    }
-
     fn minimax_move(
         &self,
         game_state: &GameState,
@@ -118,18 +57,7 @@ impl AiPlayer {
             let mut simulated_state = game_state.clone();
             simulated_state.place_piece(x, y);
 
-            let depth = if self.difficulty == Difficulty::Hard {
-                self.max_depth
-            } else {
-                3
-            };
-            let score = self.minimax(
-                &mut simulated_state,
-                false,
-                depth,
-                &mut memo,
-                is_detailed_eval,
-            );
+            let score = self.minimax(&mut simulated_state, false, 3, &mut memo, is_detailed_eval);
 
             if score > best_score {
                 best_score = score;
@@ -139,7 +67,8 @@ impl AiPlayer {
             }
         }
 
-        best_moves.choose(&mut thread_rng()).cloned()
+        let mut rng = thread_rng();
+        best_moves.choose(&mut rng).cloned()
     }
 
     fn minimax(
@@ -169,7 +98,7 @@ impl AiPlayer {
         }
 
         if depth == 0 {
-            return self.evaluate_position(game_state);
+            return self.evaluate_position(game_state, is_detailed_eval);
         }
 
         let mut best_score = if is_maximizing { i32::MIN } else { i32::MAX };
@@ -195,8 +124,7 @@ impl AiPlayer {
         best_score
     }
 
-    fn evaluate_position(&self, game_state: &GameState) -> i32 {
-        let mut score = 0;
+    fn evaluate_position(&self, game_state: &GameState, _is_detailed_eval: bool) -> i32 {
         let win_patterns = [
             [(0, 0), (0, 1), (0, 2)],
             [(1, 0), (1, 1), (1, 2)],
@@ -208,59 +136,130 @@ impl AiPlayer {
             [(0, 2), (1, 1), (2, 0)],
         ];
 
+        let mut score = 0;
         for pattern in &win_patterns {
-            let mut x_count = 0;
-            let mut o_count = 0;
-
-            for &(row, col) in pattern {
-                match game_state.board[row][col].as_deref() {
-                    Some("X") => x_count += 1,
-                    Some("O") => o_count += 1,
-                    _ => {}
+            let (x_count, o_count) = pattern.iter().fold((0, 0), |(x_count, o_count), &(r, c)| {
+                match game_state.board[r][c].as_deref() {
+                    Some("X") => (x_count + 1, o_count),
+                    Some("O") => (x_count, o_count + 1),
+                    _ => (x_count, o_count),
                 }
-            }
+            });
 
             if o_count == 3 {
-                score += self.evaluation_table["opponent_three_in_row"];
+                score += 100;
             } else if o_count == 2 && x_count == 0 {
-                score += self.evaluation_table["opponent_two_in_row"];
-            } else if x_count == 2 && o_count == 0 {
-                score += self.evaluation_table["self_two_in_row"];
+                score += 10;
             } else if x_count == 3 {
-                score += self.evaluation_table["self_three_in_row"];
+                score -= 100;
+            } else if x_count == 2 && o_count == 0 {
+                score -= 10;
             }
         }
 
         score
     }
+
+    fn q_learning_move(&mut self, game_state: &GameState) -> Option<(usize, usize)> {
+        let state = format!("{:?}", game_state.board);
+        let mut rng = thread_rng();
+
+        if rng.gen::<f32>() < self.q_learning.as_ref().unwrap().epsilon {
+            game_state.available_moves().choose(&mut rng).cloned()
+        } else {
+            self.q_learning
+                .as_mut()?
+                .select_best_action(&state, game_state)
+        }
+    }
 }
 
-#[derive(Debug)]
+// QLearning structは同様に定義
 pub struct QLearning {
-    q_table: HashMap<String, f32>,
+    q_table: HashMap<String, HashMap<(usize, usize), f32>>,
     alpha: f32,
     gamma: f32,
-    epsilon: f32,
+    pub epsilon: f32,
 }
 
 impl QLearning {
-    pub fn new(alpha: f32, gamma: f32, epsilon: f32) -> Self {
+    pub fn new(alpha: f32, gamma: f32, epsilon: f32, q_table_file: &str) -> Self {
+        let q_table = Self::load_q_table(q_table_file).unwrap_or_default();
         Self {
-            q_table: HashMap::new(),
+            q_table,
             alpha,
             gamma,
             epsilon,
         }
     }
 
-    fn get_q_value(&mut self, state_action: &str) -> f32 {
-        *self.q_table.entry(state_action.to_string()).or_insert(0.0)
+    fn load_q_table(file_path: &str) -> io::Result<HashMap<String, HashMap<(usize, usize), f32>>> {
+        if let Ok(contents) = fs::read_to_string(file_path) {
+            Ok(serde_json::from_str(&contents)?)
+        } else {
+            Ok(HashMap::new())
+        }
     }
 
-    pub fn update_q_value(&mut self, state: &str, action: &str, reward: f32, next_max_q: f32) {
-        let state_action = format!("{}:{}", state, action);
-        let current_q = self.get_q_value(&state_action);
-        let new_q = current_q + self.alpha * (reward + self.gamma * next_max_q - current_q);
-        self.q_table.insert(state_action, new_q);
+    fn save_q_table(&self, file_path: &str) -> io::Result<()> {
+        let contents = serde_json::to_string(&self.q_table)?;
+        let mut file = File::create(file_path)?;
+        file.write_all(contents.as_bytes())?;
+        Ok(())
+    }
+
+    fn get_q_value(&self, state: &str, action: (usize, usize)) -> f32 {
+        *self
+            .q_table
+            .get(state)
+            .and_then(|actions| actions.get(&action))
+            .unwrap_or(&0.0)
+    }
+
+    pub fn update_q_value(
+        &mut self,
+        state: &str,
+        action: (usize, usize),
+        reward: f32,
+        next_state: &str,
+    ) {
+        let next_max_q = *self
+            .q_table
+            .get(next_state)
+            .unwrap_or(&HashMap::new())
+            .values()
+            .max_by(|a, b| a.partial_cmp(b).unwrap())
+            .unwrap_or(&0.0);
+
+        let q_value = self.get_q_value(state, action);
+        let new_q_value = q_value + self.alpha * (reward + self.gamma * next_max_q - q_value);
+
+        self.q_table
+            .entry(state.to_string())
+            .or_insert_with(HashMap::new)
+            .insert(action, new_q_value);
+    }
+
+    pub fn select_best_action(
+        &mut self,
+        state: &str,
+        game_state: &GameState,
+    ) -> Option<(usize, usize)> {
+        let available_moves = game_state.available_moves();
+        let actions = self.q_table.get(state)?;
+
+        available_moves.into_iter().max_by(|&a, &b| {
+            actions
+                .get(&a)
+                .unwrap_or(&0.0)
+                .partial_cmp(&actions.get(&b).unwrap_or(&0.0))
+                .unwrap()
+        })
+    }
+
+    pub fn decay_epsilon(&mut self) {
+        if self.epsilon > 0.01 {
+            self.epsilon *= 0.995;
+        }
     }
 }
