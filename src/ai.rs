@@ -1,10 +1,9 @@
 use crate::game::state::GameState;
+use crate::three_solver::ThreeSolver;
 use rand::seq::SliceRandom;
-use rand::{thread_rng, Rng};
+use rand::thread_rng;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::fs::{self, File};
-use std::io::{self, Write};
 
 #[derive(Clone, Deserialize, Serialize, PartialEq, Debug)]
 pub enum Difficulty {
@@ -15,20 +14,17 @@ pub enum Difficulty {
 
 pub struct AiPlayer {
     pub difficulty: Difficulty,
-    pub q_learning: Option<QLearning>,
+    pub solver: Option<ThreeSolver>,
 }
 
 impl AiPlayer {
     pub fn new(difficulty: Difficulty) -> Self {
-        let q_learning = if difficulty == Difficulty::Hard {
-            Some(QLearning::new(0.1, 0.9, 0.5, "q_table.json")) // Q学習のためのパラメータ設定
+        let solver = if difficulty == Difficulty::Hard {
+            Some(ThreeSolver::new())
         } else {
             None
         };
-        Self {
-            difficulty,
-            q_learning,
-        }
+        Self { difficulty, solver }
     }
 
     pub fn make_move(&mut self, game_state: &mut GameState) -> Option<(usize, usize)> {
@@ -160,106 +156,18 @@ impl AiPlayer {
         score
     }
 
-    fn q_learning_move(&mut self, game_state: &GameState) -> Option<(usize, usize)> {
-        let state = format!("{:?}", game_state.board);
-        let mut rng = thread_rng();
+    pub fn q_learning_move(&mut self, game_state: &GameState) -> Option<(usize, usize)> {
+        if let Some(solver) = &mut self.solver {
+            let state_key = game_state.to_string();
+            let action = solver.select_best_action(&state_key, game_state)?;
 
-        if rng.gen::<f32>() < self.q_learning.as_ref().unwrap().epsilon {
-            game_state.available_moves().choose(&mut rng).cloned()
+            let reward = 0.0; // Placeholder: Compute actual reward based on game state
+            let next_state_key = game_state.to_three_state();
+            solver.update(&state_key, action, reward, &next_state_key);
+
+            Some(action)
         } else {
-            self.q_learning
-                .as_mut()?
-                .select_best_action(&state, game_state)
-        }
-    }
-}
-
-// QLearning structは同様に定義
-pub struct QLearning {
-    q_table: HashMap<String, HashMap<(usize, usize), f32>>,
-    alpha: f32,
-    gamma: f32,
-    pub epsilon: f32,
-}
-
-impl QLearning {
-    pub fn new(alpha: f32, gamma: f32, epsilon: f32, q_table_file: &str) -> Self {
-        let q_table = Self::load_q_table(q_table_file).unwrap_or_default();
-        Self {
-            q_table,
-            alpha,
-            gamma,
-            epsilon,
-        }
-    }
-
-    fn load_q_table(file_path: &str) -> io::Result<HashMap<String, HashMap<(usize, usize), f32>>> {
-        if let Ok(contents) = fs::read_to_string(file_path) {
-            Ok(serde_json::from_str(&contents)?)
-        } else {
-            Ok(HashMap::new())
-        }
-    }
-
-    fn save_q_table(&self, file_path: &str) -> io::Result<()> {
-        let contents = serde_json::to_string(&self.q_table)?;
-        let mut file = File::create(file_path)?;
-        file.write_all(contents.as_bytes())?;
-        Ok(())
-    }
-
-    fn get_q_value(&self, state: &str, action: (usize, usize)) -> f32 {
-        *self
-            .q_table
-            .get(state)
-            .and_then(|actions| actions.get(&action))
-            .unwrap_or(&0.0)
-    }
-
-    pub fn update_q_value(
-        &mut self,
-        state: &str,
-        action: (usize, usize),
-        reward: f32,
-        next_state: &str,
-    ) {
-        let next_max_q = *self
-            .q_table
-            .get(next_state)
-            .unwrap_or(&HashMap::new())
-            .values()
-            .max_by(|a, b| a.partial_cmp(b).unwrap())
-            .unwrap_or(&0.0);
-
-        let q_value = self.get_q_value(state, action);
-        let new_q_value = q_value + self.alpha * (reward + self.gamma * next_max_q - q_value);
-
-        self.q_table
-            .entry(state.to_string())
-            .or_insert_with(HashMap::new)
-            .insert(action, new_q_value);
-    }
-
-    pub fn select_best_action(
-        &mut self,
-        state: &str,
-        game_state: &GameState,
-    ) -> Option<(usize, usize)> {
-        let available_moves = game_state.available_moves();
-        let actions = self.q_table.get(state)?;
-
-        available_moves.into_iter().max_by(|&a, &b| {
-            actions
-                .get(&a)
-                .unwrap_or(&0.0)
-                .partial_cmp(&actions.get(&b).unwrap_or(&0.0))
-                .unwrap()
-        })
-    }
-
-    pub fn decay_epsilon(&mut self) {
-        if self.epsilon > 0.01 {
-            self.epsilon *= 0.995;
+            None
         }
     }
 }

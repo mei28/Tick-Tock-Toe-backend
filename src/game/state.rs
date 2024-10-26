@@ -4,7 +4,7 @@ use std::fmt;
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct GameState {
-    pub board: [[Option<String>; 3]; 3], // 3x3のボードを定義
+    pub board: [[Option<String>; 3]; 3],
     pub current_player: String,
     pub moves_x: Vec<(usize, usize)>,
     pub moves_o: Vec<(usize, usize)>,
@@ -17,7 +17,7 @@ pub struct GameState {
 impl GameState {
     pub fn new(is_ai_game: bool, difficulty: Option<Difficulty>) -> Self {
         Self {
-            board: [[None, None, None], [None, None, None], [None, None, None]], // 3x3の初期化
+            board: [[None, None, None], [None, None, None], [None, None, None]],
             current_player: "X".to_string(),
             moves_x: Vec::new(),
             moves_o: Vec::new(),
@@ -107,17 +107,29 @@ impl GameState {
     }
 
     pub fn reset(&mut self) {
-        self.board = [[None, None, None], [None, None, None], [None, None, None]]; // 3x3のボードのリセット
+        self.board = [[None, None, None], [None, None, None], [None, None, None]];
         self.moves_x.clear();
         self.moves_o.clear();
         self.winner = None;
         self.winning_line = None;
         self.current_player = "X".to_string();
     }
+
+    pub fn to_three_state(&self) -> String {
+        self.board
+            .iter()
+            .flat_map(|row| row.iter())
+            .map(|cell| match cell.as_deref() {
+                Some("X") => "X",
+                Some("O") => "O",
+                _ => " ",
+            })
+            .collect::<String>()
+    }
 }
 
 impl fmt::Display for GameState {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{:?}", self.board)
+        write!(f, "{}", self.to_three_state())
     }
 }

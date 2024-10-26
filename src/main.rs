@@ -2,16 +2,17 @@ use crate::handlers::game::{get_board, make_move, new_game, reset_game, AppState
 use crate::handlers::health::health_check;
 use actix_web::{web, App};
 use std::collections::HashMap;
-use std::sync::Mutex;
+use tokio::sync::Mutex; // tokio::sync::Mutex を使用する
 
 mod ai;
 mod game;
 mod handlers;
+mod three_solver;
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     let game_state = web::Data::new(AppState {
-        games: Mutex::new(HashMap::new()),
+        games: Mutex::new(HashMap::new()), // tokio::sync::Mutex を使用
     });
 
     actix_web::HttpServer::new(move || {
