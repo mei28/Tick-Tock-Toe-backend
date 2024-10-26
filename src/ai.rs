@@ -6,7 +6,7 @@ use serde_json::Value;
 use std::collections::HashMap;
 use std::fs;
 
-#[derive(Clone, Deserialize, Serialize, PartialEq)]
+#[derive(Clone, Deserialize, Serialize, PartialEq, Debug)]
 pub enum Difficulty {
     Easy,
     Medium,
@@ -17,6 +17,7 @@ pub struct AiPlayer {
     pub difficulty: Difficulty,
     pub max_depth: usize,
     evaluation_table: HashMap<String, i32>,
+    q_learning: Option<QLearning>,
 }
 
 impl AiPlayer {
@@ -24,7 +25,13 @@ impl AiPlayer {
         let max_depth = match difficulty {
             Difficulty::Easy => 1,
             Difficulty::Medium => 4,
-            Difficulty::Hard => 8, // 高い深さで探索
+            Difficulty::Hard => 0,
+        };
+
+        let q_learning = if difficulty == Difficulty::Hard {
+            Some(QLearning::new(0.1, 0.9, 0.2))
+        } else {
+            None
         };
 
         let evaluation_table = Self::load_evaluation_table(evaluation_file, &difficulty, eval_type);
@@ -33,6 +40,7 @@ impl AiPlayer {
             difficulty,
             max_depth,
             evaluation_table,
+            q_learning,
         }
     }
 
@@ -55,24 +63,46 @@ impl AiPlayer {
             .as_object()
             .expect("Expected evaluation table object");
 
-        let mut table = HashMap::new();
-        for (key, value) in table_data {
-            table.insert(key.clone(), value.as_i64().unwrap_or(0) as i32);
-        }
-        table
+        table_data
+            .iter()
+            .map(|(key, value)| (key.clone(), value.as_i64().unwrap_or(0) as i32))
+            .collect()
     }
 
-    pub fn make_move(&self, game_state: &mut GameState) -> Option<(usize, usize)> {
+    pub fn make_move(&mut self, game_state: &mut GameState) -> Option<(usize, usize)> {
         match self.difficulty {
             Difficulty::Easy => self.random_move(game_state),
             Difficulty::Medium => self.minimax_move(game_state, false),
-            Difficulty::Hard => self.minimax_move(game_state, true),
+            Difficulty::Hard => self.q_learning_move(game_state),
         }
     }
 
     fn random_move(&self, game_state: &GameState) -> Option<(usize, usize)> {
         let mut rng = thread_rng();
         game_state.available_moves().choose(&mut rng).cloned()
+    }
+
+    fn q_learning_move(&mut self, game_state: &GameState) -> Option<(usize, usize)> {
+        let state = format!("{:?}", game_state);
+        let mut rng = thread_rng();
+
+        if rand::random::<f32>() < self.q_learning.as_ref().unwrap().epsilon {
+            game_state.available_moves().choose(&mut rng).cloned()
+        } else {
+            game_state.available_moves().into_iter().max_by(|&a, &b| {
+                let q_a = self
+                    .q_learning
+                    .as_mut()
+                    .unwrap()
+                    .get_q_value(&format!("{}:{:?}", state, a));
+                let q_b = self
+                    .q_learning
+                    .as_mut()
+                    .unwrap()
+                    .get_q_value(&format!("{}:{:?}", state, b));
+                q_a.partial_cmp(&q_b).unwrap()
+            })
+        }
     }
 
     fn minimax_move(
@@ -88,10 +118,15 @@ impl AiPlayer {
             let mut simulated_state = game_state.clone();
             simulated_state.place_piece(x, y);
 
+            let depth = if self.difficulty == Difficulty::Hard {
+                self.max_depth
+            } else {
+                3
+            };
             let score = self.minimax(
                 &mut simulated_state,
                 false,
-                self.max_depth,
+                depth,
                 &mut memo,
                 is_detailed_eval,
             );
@@ -104,8 +139,7 @@ impl AiPlayer {
             }
         }
 
-        let mut rng = thread_rng();
-        best_moves.choose(&mut rng).cloned()
+        best_moves.choose(&mut thread_rng()).cloned()
     }
 
     fn minimax(
@@ -198,5 +232,35 @@ impl AiPlayer {
         }
 
         score
+    }
+}
+
+#[derive(Debug)]
+pub struct QLearning {
+    q_table: HashMap<String, f32>,
+    alpha: f32,
+    gamma: f32,
+    epsilon: f32,
+}
+
+impl QLearning {
+    pub fn new(alpha: f32, gamma: f32, epsilon: f32) -> Self {
+        Self {
+            q_table: HashMap::new(),
+            alpha,
+            gamma,
+            epsilon,
+        }
+    }
+
+    fn get_q_value(&mut self, state_action: &str) -> f32 {
+        *self.q_table.entry(state_action.to_string()).or_insert(0.0)
+    }
+
+    pub fn update_q_value(&mut self, state: &str, action: &str, reward: f32, next_max_q: f32) {
+        let state_action = format!("{}:{}", state, action);
+        let current_q = self.get_q_value(&state_action);
+        let new_q = current_q + self.alpha * (reward + self.gamma * next_max_q - current_q);
+        self.q_table.insert(state_action, new_q);
     }
 }

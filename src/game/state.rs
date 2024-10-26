@@ -1,9 +1,10 @@
 use crate::ai::Difficulty;
 use serde::{Deserialize, Serialize};
+use std::fmt;
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct GameState {
-    pub board: [[Option<String>; 3]; 3],
+    pub board: [[Option<String>; 3]; 3], // 3x3のボードを定義
     pub current_player: String,
     pub moves_x: Vec<(usize, usize)>,
     pub moves_o: Vec<(usize, usize)>,
@@ -16,7 +17,7 @@ pub struct GameState {
 impl GameState {
     pub fn new(is_ai_game: bool, difficulty: Option<Difficulty>) -> Self {
         Self {
-            board: [[None, None, None], [None, None, None], [None, None, None]],
+            board: [[None, None, None], [None, None, None], [None, None, None]], // 3x3の初期化
             current_player: "X".to_string(),
             moves_x: Vec::new(),
             moves_o: Vec::new(),
@@ -106,11 +107,17 @@ impl GameState {
     }
 
     pub fn reset(&mut self) {
-        self.board = [[None, None, None], [None, None, None], [None, None, None]];
+        self.board = [[None, None, None], [None, None, None], [None, None, None]]; // 3x3のボードのリセット
         self.moves_x.clear();
         self.moves_o.clear();
         self.winner = None;
         self.winning_line = None;
         self.current_player = "X".to_string();
+    }
+}
+
+impl fmt::Display for GameState {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{:?}", self.board)
     }
 }
