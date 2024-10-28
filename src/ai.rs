@@ -28,9 +28,21 @@ impl AiPlayer {
     }
 
     pub fn make_move(&mut self, game_state: &mut GameState) -> Option<(usize, usize)> {
+        // 最初の3ターン目までは相手のリーチをブロックする
+        if game_state.moves_x.len() + game_state.moves_o.len() < 6 {
+            if let Some(block_move) = self.find_block_move(game_state) {
+                return Some(block_move);
+            }
+        }
         match self.difficulty {
-            Difficulty::Easy => self.random_move(game_state),
-            Difficulty::Medium => self.minimax_move(game_state, false),
+            Difficulty::Easy | Difficulty::Medium => {
+                // 通常のランダムまたはミニマックスの動きを行う
+                if self.difficulty == Difficulty::Easy {
+                    self.random_move(game_state)
+                } else {
+                    self.minimax_move(game_state, false)
+                }
+            }
             Difficulty::Hard => self.q_learning_move(game_state),
         }
     }
@@ -154,6 +166,43 @@ impl AiPlayer {
         }
 
         score
+    }
+
+    fn find_block_move(&self, game_state: &GameState) -> Option<(usize, usize)> {
+        let win_patterns = [
+            [(0, 0), (0, 1), (0, 2)],
+            [(1, 0), (1, 1), (1, 2)],
+            [(2, 0), (2, 1), (2, 2)],
+            [(0, 0), (1, 0), (2, 0)],
+            [(0, 1), (1, 1), (2, 1)],
+            [(0, 2), (1, 2), (2, 2)],
+            [(0, 0), (1, 1), (2, 2)],
+            [(0, 2), (1, 1), (2, 0)],
+        ];
+
+        // 相手がリーチしている場所を特定し、ブロックする動きを返す
+        for pattern in &win_patterns {
+            let (x_count, o_count, empty_cell) =
+                pattern
+                    .iter()
+                    .fold(
+                        (0, 0, None),
+                        |(x_count, o_count, empty), &(r, c)| match game_state.board[r][c].as_deref()
+                        {
+                            Some("X") => (x_count + 1, o_count, empty),
+                            Some("O") => (x_count, o_count + 1, empty),
+                            None => (x_count, o_count, Some((r, c))),
+
+                            _ => (x_count, o_count, empty), // ワイルドカードを追加
+                        },
+                    );
+
+            if x_count == 2 && o_count == 0 {
+                return empty_cell;
+            }
+        }
+
+        None
     }
 
     pub fn q_learning_move(&mut self, game_state: &GameState) -> Option<(usize, usize)> {
